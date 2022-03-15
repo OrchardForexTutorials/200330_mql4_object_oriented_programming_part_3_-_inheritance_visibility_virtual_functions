@@ -1,0 +1,128 @@
+/*
+ *	OO Channel Example.mq4
+ *	Copyright 2020, Orchard Forex
+ *	https://orchardforex.com
+ *
+ */
+
+/**=
+ *
+ * Disclaimer and Licence
+ *
+ * This file is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * All trading involves risk. You should have received the risk warnings
+ * and terms of use in the README.MD file distributed with this software.
+ * See the README.MD file for more information and before using this software.
+ *
+ **/
+#property copyright "Copyright 2020, Orchard Forex"
+#property link "https://orchardforex.com"
+#property version "1.00"
+#property strict
+
+#property indicator_chart_window
+#property indicator_buffers 3
+
+#property indicator_color1 clrWhite  //	Rearranged to put mid channel first
+#property indicator_style1 STYLE_DOT //	And group app properties for each indicator together
+#property indicator_type1  DRAW_LINE
+
+#property indicator_color2 clrGreen
+#property indicator_style2 STYLE_DASHDOT
+#property indicator_type2  DRAW_LINE
+
+#property indicator_color3 clrYellow
+#property indicator_style3 STYLE_DASHDOT
+#property indicator_type3  DRAW_LINE
+
+#include <Orchard/OOP/OOP3/DonchianChannel.mqh> //	Including BOTH indicators here
+#include <Orchard/OOP/OOP3/ATRChannel.mqh>
+
+enum ENUM_CHANNEL_TYPE
+{                         //	Helps with input of channel type
+   CHANNEL_TYPE_DONCHIAN, // Donchian channel
+   CHANNEL_TYPE_ATR       // ATR Channel
+};
+
+input ENUM_CHANNEL_TYPE  InpChannelType    = CHANNEL_TYPE_DONCHIAN; //	Channel Type
+input int                InpPeriods        = 20;                    // Channel Periods
+
+input string             ExtAtrParameters  = "--- Parameters for ATR channels ---"; //	ATR channel parameters
+input double             InpAtrMultiplier  = 1.0;                                   //	Channel Multiplier
+input int                InpMaPeriods      = 20;                                    //	Moving Average Periods
+input ENUM_MA_METHOD     InpMaMethod       = MODE_SMA;                              //	Moving average method
+input ENUM_APPLIED_PRICE InpMaAppliedPrice = PRICE_CLOSE;                           //	Moving average applied price
+
+double                   MidBuffer[]; //	New buffer
+double                   HiBuffer[];
+double                   LoBuffer[];
+
+#define MidInd 0 //	New mid indicator
+#define HiInd  1
+#define LoInd  2
+
+CciChannelBase *Channel; //	Ony declared as the base class
+
+int             OnInit() {
+
+   SetIndexBuffer( MidInd, MidBuffer ); //	New
+   SetIndexLabel( MidInd, "Mid" );
+
+   SetIndexBuffer( HiInd, HiBuffer );
+   SetIndexLabel( HiInd, "High" );
+
+   SetIndexBuffer( LoInd, LoBuffer );
+   SetIndexLabel( LoInd, "Low" );
+
+   Channel = new CciDonchianChannel();
+   // DonchianChannel	=	new CciDonchianChannel(_Symbol, (ENUM_TIMEFRAMES)_Period, Periods);
+   switch ( InpChannelType ) { //	Create objects from specific child classes
+   case CHANNEL_TYPE_DONCHIAN:
+      Channel = new CciDonchianChannel( _Symbol, ( ENUM_TIMEFRAMES )_Period, InpPeriods );
+      break;
+   case CHANNEL_TYPE_ATR:
+      Channel = new CciATRChannel( _Symbol, ( ENUM_TIMEFRAMES )_Period, InpPeriods, InpAtrMultiplier, InpMaPeriods, InpMaMethod, InpMaAppliedPrice );
+      break;
+   default:
+      return ( INIT_PARAMETERS_INCORRECT );
+   }
+
+   return ( INIT_SUCCEEDED );
+}
+
+int OnCalculate( const int       rates_total,
+                 const int       prev_calculated,
+                 const datetime &time[],
+                 const double   &open[],
+                 const double   &high[],
+                 const double   &low[],
+                 const double   &close[],
+                 const long     &tick_volume[],
+                 const long     &volume[],
+                 const int      &spread[] ) {
+
+   int limit = rates_total - prev_calculated;
+   if ( prev_calculated > 0 )
+      limit++;
+
+   for ( int i = limit - 1; i >= 0; i-- ) {
+      MidBuffer[i] = Channel.Mid( i ); // New
+      HiBuffer[i]  = Channel.High( i );
+      LoBuffer[i]  = Channel.Low( i );
+   }
+
+   return ( rates_total );
+}
+//+------------------------------------------------------------------+
